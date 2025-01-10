@@ -1,15 +1,15 @@
 import argparse
 import os
 import shutil
-
+import re
 
 from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.docstore.document import Document
-from langchain_ollama import OllamaEmbeddings
+#from langchain_ollama import OllamaEmbeddings
 #from langchain_community.vectorstores.chroma import Chroma
 from langchain_chroma import Chroma
-
+from langchain_nomic import NomicEmbeddings
 
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
@@ -58,8 +58,9 @@ def split_documents(documents: list[Document]):
 def add_to_chroma(chunks: list[Document]):
     db = Chroma(
         persist_directory=CHROMA_PATH, 
-        embedding_function=OllamaEmbeddings(
-            model="gemma2:9b"
+        embedding_function=NomicEmbeddings(
+            model="nomic-embed-text-v1.5",
+            nomic_api_key="nk-wiePZS_O5yLAf_nhm4CplBMupupiODNtiCvvGrXxqVw"
         )
     )
     
@@ -118,19 +119,25 @@ def clear_database():
 
 
 def clean_text(text):
-    """Metni temizler ve formatlar"""
-    # Gereksiz boşlukları temizle
+      # Tüm boşlukları normalize et
     text = ' '.join(text.split())
+    
+    # Kelimeleri ayır (camelCase ve birleşik kelimeleri tespit et)
+    text = re.sub(r'([a-z])([A-Z])', r'\1 \2', text)
+    
+    # Sayılarla metinleri ayır
+    text = re.sub(r'(\d+)([a-zA-Z])', r'\1 \2', text)
+    text = re.sub(r'([a-zA-Z])(\d+)', r'\1 \2', text)
     
     # Noktalama işaretlerinden sonra boşluk ekle
-    for punct in ['.', '!', '?', ',', ';']:
+    for punct in ['.', '!', '?', ',', ';', ':', '(', ')', '[', ']']:
         text = text.replace(f'{punct}', f'{punct} ')
-    
-    # Çift boşlukları tek boşluğa çevir
-    text = ' '.join(text.split())
     
     # Türkçe karakterleri düzelt
     text = text.replace('İ', 'i').replace('I', 'ı')
+    
+    # Çift boşlukları temizle
+    text = ' '.join(text.split())
     
     return text
 
